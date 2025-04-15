@@ -1,0 +1,54 @@
+# Node modules (backend/frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.env
+.env
+venv/
+env/
+*.sqlite3
+*.egg-info/
+
+# React build
+/build
+/dist
+
+# ChromeDriver binary (don’t commit OS binaries)
+chromedriver
+chromedriver.exe
+chromedriver.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# VSCode settings
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Socket/WebSocket dump files
+*.sock
+*.pid
+
+# Test coverage
+coverage/
+*.lcov
+
+# Misc
+*.bak
+*.swp
+*.tmp
+*.temp
+*.orig
