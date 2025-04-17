@@ -3,17 +3,17 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
-if len(sys.argv) < 2:
-    print("Missing URL")
+# Get URL from command-line argument
+if len(sys.argv) != 2:
+    print("Usage: python browser_launcher.py <url>")
     sys.exit(1)
 
-url = sys.argv[1]
+url_to_open = sys.argv[1]
 
 options = Options()
-options.add_experimental_option("detach", True)  # Keeps browser open
-options.add_argument('--disable-blink-features=AutomationControlled')
+options.add_experimental_option("detach", True)
 
-driver = webdriver.Chrome(service=Service('./chromedriver.exe'), options=options)
-driver.get(url)
+CHROMEDRIVER_PATH = "C:\\Users\\rishi\\CybeamOne\\automation\\chromedriver.exe"  # Full path required
 
-print(f"Launched {url}")
+driver = webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=options)
+driver.get(url_to_open)

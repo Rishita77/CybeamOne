@@ -1,22 +1,44 @@
 const express = require('express');
+const { spawn } = require('child_process');
 const cors = require('cors');
-const { exec } = require('child_process');
+const path = require('path');
+
 const app = express();
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
 
 app.post('/launch', (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'Missing URL' });
+  const { url, browser } = req.body;
 
-  exec(`python ../automation/browser_launcher.py ${url}`, (error, stdout, stderr) => {
-    if (error) {
-      console.error('Python error:', stderr);
-      return res.status(500).json({ error: stderr });
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  const pythonScript = path.join(__dirname, '../automation/browser_launcher.py');
+
+  const child = spawn('python', [pythonScript, url]);
+
+  child.stdout.on('data', (data) => {
+    console.log(`stdout: ${data}`);
+  });
+
+  child.stderr.on('data', (data) => {
+    console.error(`stderr: ${data}`);
+  });
+
+  child.on('close', (code) => {
+    if (code === 0) {
+      res.json({ status: 'Browser launched successfully!' });
+    } else {
+      res.status(500).json({ error: 'Failed to launch browser' });
     }
-    return res.json({ status: 'Browser launched', message: stdout });
   });
 });
 
-app.listen(3000, () => console.log('Backend running on http://localhost:3000'));
+
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
