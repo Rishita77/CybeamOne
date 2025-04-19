@@ -4,6 +4,8 @@ import './App.css';
 function App() {
   const [url, setUrl] = useState('');
   const [logs, setLogs] = useState([]);
+  const [showOutcomeModal, setShowOutcomeModal] = useState(false);
+  const [selectedOutcome, setSelectedOutcome] = useState('');
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000');
@@ -18,7 +20,6 @@ function App() {
         console.error('Invalid WebSocket data:', event.data);
       }
     };
-    
 
     socket.onerror = (err) => {
       console.error('WebSocket error:', err);
@@ -52,17 +53,17 @@ function App() {
       setLogs((prev) => [...prev, `❌ Error starting tracking: ${err.message}`]);
     }
   };
-  
+
   const stopTracking = async () => {
     try {
       const res = await fetch('http://localhost:3000/stop-tracking', { method: 'POST' });
       const data = await res.json();
       setLogs((prev) => [...prev, `🛑 ${data.status}`]);
+      setShowOutcomeModal(true); // Show popup after stopping
     } catch (err) {
       setLogs((prev) => [...prev, `❌ Error stopping tracking: ${err.message}`]);
     }
   };
-  
 
   return (
     <div className="app-container">
@@ -95,6 +96,62 @@ function App() {
           ))}
         </div>
       </div>
+
+      {showOutcomeModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>Test Outcome</h3>
+            <div className="radio-group">
+              <label>
+                <input
+                  type="radio"
+                  value="Passed"
+                  checked={selectedOutcome === 'Passed'}
+                  onChange={() => setSelectedOutcome('Passed')}
+                /> ✅ Passed
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="Partially Passed"
+                  checked={selectedOutcome === 'Partially Passed'}
+                  onChange={() => setSelectedOutcome('Partially Passed')}
+                /> ⚠️ Partial
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="Failed"
+                  checked={selectedOutcome === 'Failed'}
+                  onChange={() => setSelectedOutcome('Failed')}
+                /> ❌ Failed
+              </label>
+            </div>
+            <button
+              className="submit-button"
+              onClick={async () => {
+                if (!selectedOutcome) {
+                  alert('Please select an outcome before submitting.');
+                  return;
+                }
+                try {
+                  await fetch('http://localhost:3000/submit-outcome', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ outcome: selectedOutcome }),
+                  });
+                  setLogs((prev) => [...prev, `📌 Outcome recorded: ${selectedOutcome}`]);
+                } catch (e) {
+                  setLogs((prev) => [...prev, `❌ Error saving outcome: ${e.message}`]);
+                }
+                setShowOutcomeModal(false);
+              }}
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
