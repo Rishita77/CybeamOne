@@ -8,15 +8,17 @@ function App() {
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000');
 
-    socket.onmessage = (event) => {
+    socket.onmessage = async (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const text = await event.data.text(); // 👈 Convert Blob to text
+        const data = JSON.parse(text);
         const summary = `[${data.timestamp}] ${data.type.toUpperCase()} — ${JSON.stringify(data.data)}`;
         setLogs((prev) => [...prev, summary]);
       } catch (err) {
         console.error('Invalid WebSocket data:', event.data);
       }
     };
+    
 
     socket.onerror = (err) => {
       console.error('WebSocket error:', err);

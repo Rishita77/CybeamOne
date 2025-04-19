@@ -19,7 +19,6 @@ let connectedClients = [];
 let isTracking = false; 
 
 
-// WebSocket server setup
 wss.on('connection', (ws) => {
   console.log('🟢 WebSocket client connected');
   connectedClients.push(ws);
@@ -30,9 +29,11 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('message', (message) => {
-    console.log(`📥 Event received: ${message}`);
+    
     
     if (isTracking) {
+      
+      console.log(`📥 Event received: ${message}`);
       connectedClients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(message);
@@ -57,7 +58,6 @@ app.post('/stop-tracking', (req, res) => {
   res.json({ status: 'Tracking stopped' });
 });
 
-// Launch Python + browser script
 app.post('/launch', (req, res) => {
   const { url } = req.body;
 
