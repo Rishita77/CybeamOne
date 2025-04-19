@@ -1,33 +1,66 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
   const [url, setUrl] = useState('');
   const [logs, setLogs] = useState([]);
-  const [browser, setBrowser] = useState('chromium');
+
+  useEffect(() => {
+    const socket = new WebSocket('ws://localhost:3000');
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const summary = `[${data.timestamp}] ${data.type.toUpperCase()} — ${JSON.stringify(data.data)}`;
+        setLogs((prev) => [...prev, summary]);
+      } catch (err) {
+        console.error('Invalid WebSocket data:', event.data);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error('WebSocket error:', err);
+      setLogs((prev) => [...prev, '❌ WebSocket connection failed.']);
+    };
+
+    return () => socket.close();
+  }, []);
 
   const handleNavigate = async () => {
     try {
       const response = await fetch('http://localhost:3000/launch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, browser }),
+        body: JSON.stringify({ url }),
       });
 
       const data = await response.json();
-      setLogs([...logs, `Launch status: ${data.status || data.error}`]);
+      setLogs((prev) => [...prev, `🔗 Launch status: ${data.status || data.error}`]);
     } catch (err) {
-      setLogs([...logs, `Error launching site: ${err.message}`]);
+      setLogs((prev) => [...prev, `❌ Error launching browser: ${err.message}`]);
     }
   };
 
-  const handleStart = () => {
-    setLogs([...logs, `Started tracking for ${url}`]);
+  const startTracking = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/start-tracking', { method: 'POST' });
+      const data = await res.json();
+      setLogs((prev) => [...prev, `✅ ${data.status}`]);
+    } catch (err) {
+      setLogs((prev) => [...prev, `❌ Error starting tracking: ${err.message}`]);
+    }
   };
-
-  const handleStop = () => {
-    setLogs([...logs, `Stopped tracking for ${url}`]);
+  
+  const stopTracking = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/stop-tracking', { method: 'POST' });
+      const data = await res.json();
+      setLogs((prev) => [...prev, `🛑 ${data.status}`]);
+    } catch (err) {
+      setLogs((prev) => [...prev, `❌ Error stopping tracking: ${err.message}`]);
+    }
   };
+  
 
   return (
     <div className="app-container">
@@ -42,33 +75,14 @@ function App() {
           className="input"
         />
 
-        <select
-          value={browser}
-          onChange={(e) => setBrowser(e.target.value)}
-          className="select"
-        >
-          <option value="chromium">Chromium</option>
-          <option value="firefox">Firefox</option>
-          <option value="webkit">WebKit</option>
-        </select>
-
         <div className="button-container">
-          <button
-            className="button navigate-button"
-            onClick={handleNavigate}
-          >
+          <button className="button navigate-button" onClick={handleNavigate}>
             Navigate
           </button>
-          <button
-            className="button start-button"
-            onClick={handleStart}
-          >
+          <button className="button start-button" onClick={startTracking}>
             Start
           </button>
-          <button
-            className="button stop-button"
-            onClick={handleStop}
-          >
+          <button className="button stop-button" onClick={stopTracking}>
             Stop
           </button>
         </div>
