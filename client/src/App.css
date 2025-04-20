@@ -150,3 +150,13 @@ body {
   border-radius: 5px;
   cursor: pointer;
 }
+
+.export-btn {
+  background-color: #4caf50;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  margin-top: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}

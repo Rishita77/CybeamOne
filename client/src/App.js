@@ -6,13 +6,14 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [showOutcomeModal, setShowOutcomeModal] = useState(false);
   const [selectedOutcome, setSelectedOutcome] = useState('');
+  const [currentCSVFilename, setCurrentCSVFilename] = useState('');
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000');
 
     socket.onmessage = async (event) => {
       try {
-        const text = await event.data.text(); // 👈 Convert Blob to text
+        const text = await event.data.text(); // Convert Blob to text
         const data = JSON.parse(text);
         const summary = `[${data.timestamp}] ${data.type.toUpperCase()} — ${JSON.stringify(data.data)}`;
         setLogs((prev) => [...prev, summary]);
@@ -44,11 +45,41 @@ function App() {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      if (!currentCSVFilename) {
+        alert('CSV file not available. Start tracking first.');
+        return;
+      }
+
+      const response = await fetch('http://localhost:3000/export-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvFilename: currentCSVFilename }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const fileUrl = `http://localhost:3000/data/${data.file}`;
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = data.file;
+        link.click();
+      } else {
+        console.error('Export failed:', data.error);
+      }
+    } catch (err) {
+      console.error('Error exporting Excel:', err);
+    }
+  };
+
   const startTracking = async () => {
     try {
       const res = await fetch('http://localhost:3000/start-tracking', { method: 'POST' });
       const data = await res.json();
       setLogs((prev) => [...prev, `✅ ${data.status}`]);
+      setCurrentCSVFilename(data.csvFilename); // Save filename for export
     } catch (err) {
       setLogs((prev) => [...prev, `❌ Error starting tracking: ${err.message}`]);
     }
@@ -59,10 +90,31 @@ function App() {
       const res = await fetch('http://localhost:3000/stop-tracking', { method: 'POST' });
       const data = await res.json();
       setLogs((prev) => [...prev, `🛑 ${data.status}`]);
-      setShowOutcomeModal(true); // Show popup after stopping
+      setShowOutcomeModal(true);
     } catch (err) {
       setLogs((prev) => [...prev, `❌ Error stopping tracking: ${err.message}`]);
     }
+  };
+
+  const submitOutcome = async () => {
+    if (!selectedOutcome) {
+      alert('Please select an outcome before submitting.');
+      return;
+    }
+
+    try {
+      await fetch('http://localhost:3000/submit-outcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome: selectedOutcome }),
+      });
+      setLogs((prev) => [...prev, `📌 Outcome recorded: ${selectedOutcome}`]);
+    } catch (e) {
+      setLogs((prev) => [...prev, `❌ Error saving outcome: ${e.message}`]);
+    }
+
+    setShowOutcomeModal(false);
+    setSelectedOutcome('');
   };
 
   return (
@@ -95,6 +147,10 @@ function App() {
             <div key={i} className="log">{log}</div>
           ))}
         </div>
+
+        <button onClick={handleExportExcel} className="export-btn">
+          Export to Excel
+        </button>
       </div>
 
       {showOutcomeModal && (
@@ -102,51 +158,21 @@ function App() {
           <div className="modal">
             <h3>Test Outcome</h3>
             <div className="radio-group">
-              <label>
-                <input
-                  type="radio"
-                  value="Passed"
-                  checked={selectedOutcome === 'Passed'}
-                  onChange={() => setSelectedOutcome('Passed')}
-                /> ✅ Passed
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  value="Partially Passed"
-                  checked={selectedOutcome === 'Partially Passed'}
-                  onChange={() => setSelectedOutcome('Partially Passed')}
-                /> ⚠️ Partial
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  value="Failed"
-                  checked={selectedOutcome === 'Failed'}
-                  onChange={() => setSelectedOutcome('Failed')}
-                /> ❌ Failed
-              </label>
+              {['Passed', 'Partially Passed', 'Failed'].map((outcome) => (
+                <label key={outcome}>
+                  <input
+                    type="radio"
+                    value={outcome}
+                    checked={selectedOutcome === outcome}
+                    onChange={() => setSelectedOutcome(outcome)}
+                  />{' '}
+                  {outcome === 'Passed' && '✅'}
+                  {outcome === 'Partially Passed' && '⚠️'}
+                  {outcome === 'Failed' && '❌'} {outcome}
+                </label>
+              ))}
             </div>
-            <button
-              className="submit-button"
-              onClick={async () => {
-                if (!selectedOutcome) {
-                  alert('Please select an outcome before submitting.');
-                  return;
-                }
-                try {
-                  await fetch('http://localhost:3000/submit-outcome', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ outcome: selectedOutcome }),
-                  });
-                  setLogs((prev) => [...prev, `📌 Outcome recorded: ${selectedOutcome}`]);
-                } catch (e) {
-                  setLogs((prev) => [...prev, `❌ Error saving outcome: ${e.message}`]);
-                }
-                setShowOutcomeModal(false);
-              }}
-            >
+            <button className="submit-button" onClick={submitOutcome}>
               Submit
             </button>
           </div>

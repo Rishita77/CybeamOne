@@ -11,10 +11,13 @@ const PORT = 3000;
 
 const wss = new WebSocket.Server({ server });
 
+const convertCSVtoExcel = require('./csvToExcel');
+
 const { startCSVSession, writeCSVLine, stopCSVSession } = require('./csvWriter');
 
 app.use(cors());
 app.use(express.json());
+app.use('/data', express.static(path.join(__dirname, 'data')));
 
 let connectedClients = [];
 
@@ -55,9 +58,9 @@ wss.on('connection', (ws) => {
 
 app.post('/start-tracking', (req, res) => {
   isTracking = true;
-  currentCSV = startCSVSession();
+  const filename = startCSVSession(); 
   console.log('▶️ Tracking ENABLED');
-  res.json({ status: 'Tracking started' });
+  res.json({ status: 'Tracking started', csvFilename: filename }); 
 });
 
 app.post('/stop-tracking', (req, res) => {
@@ -117,6 +120,20 @@ app.post('/submit-outcome', (req, res) => {
   }
 });
 
+
+app.post('/export-excel', async (req, res) => {
+  const { csvFilename } = req.body;
+  const csvPath = path.join(__dirname, 'data', csvFilename);
+  const excelPath = csvPath.replace('.csv', '.xlsx');
+
+  try {
+    await convertCSVtoExcel(csvPath, excelPath);
+    res.json({ status: 'Excel exported', file: path.basename(excelPath) });
+  } catch (error) {
+    console.error('❌ Error exporting Excel:', error);
+    res.status(500).json({ error: 'Failed to export Excel' });
+  }
+});
 
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);

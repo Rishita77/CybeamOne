@@ -9,8 +9,8 @@ function startCSVSession() {
   const filepath = path.join(__dirname, 'data', filename);
   currentFile = filepath;
   stream = fs.createWriteStream(filepath, { flags: 'a' });
-  stream.write('timestamp,event_type,data\n'); // headers
-  return filepath;
+  stream.write('timestamp,event_type,data\n'); 
+  return filename;
 }
 
 function writeCSVLine({ timestamp, type, data }) {
