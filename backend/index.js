@@ -11,6 +11,8 @@ const PORT = 3000;
 
 const wss = new WebSocket.Server({ server });
 
+const { startCSVSession, writeCSVLine, stopCSVSession } = require('./csvWriter');
+
 app.use(cors());
 app.use(express.json());
 
@@ -30,15 +32,20 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     
-    
     if (isTracking) {
-      
       console.log(`📥 Event received: ${message}`);
       connectedClients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(message);
         }
       });
+  
+      try {
+        const parsed = JSON.parse(message);
+        writeCSVLine(parsed);
+      } catch (err) {
+        console.error('❌ Failed to write to CSV:', err.message);
+      }
     } else {
       console.log('⚠️ Ignored event (tracking is OFF)');
     }
@@ -48,6 +55,7 @@ wss.on('connection', (ws) => {
 
 app.post('/start-tracking', (req, res) => {
   isTracking = true;
+  currentCSV = startCSVSession();
   console.log('▶️ Tracking ENABLED');
   res.json({ status: 'Tracking started' });
 });
@@ -93,6 +101,22 @@ app.post('/launch', (req, res) => {
     }
   });
 });
+
+
+app.post('/submit-outcome', (req, res) => {
+  const { outcome } = req.body;
+  if (!outcome) return res.status(400).json({ error: 'No outcome provided' });
+
+  try {
+    const file = stopCSVSession(outcome);
+    console.log(`✅ Outcome "${outcome}" saved to ${file}`);
+    res.json({ status: 'Outcome saved', file });
+  } catch (err) {
+    console.error('❌ Failed to write outcome:', err);
+    res.status(500).json({ error: 'Error saving outcome' });
+  }
+});
+
 
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
