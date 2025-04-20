@@ -3,24 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 
-function sanitizeString(str) {
-  return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
-
-function fixJSON(data) {
-  try {
-    return JSON.parse(data);
-  } catch {
-    // Try un-escaping quotes
-    try {
-      return JSON.parse(data.replace(/""/g, '"').replace(/^"|"$/g, ''));
-    } catch (e2) {
-      return null;
-    }
-  }
-}
-
-function generateCypressTest(csvPath, testName = 'generated_test', defaultLaunchUrl = 'http://example.com') {
+function generateCypressTest(csvPath, testName = 'generated_test', launchUrl = 'http://example.com') {
   const content = fs.readFileSync(csvPath, 'utf-8');
 
   const rawRecords = parse(content, {
@@ -34,7 +17,6 @@ function generateCypressTest(csvPath, testName = 'generated_test', defaultLaunch
   );
 
   let commands = [];
-  let launchUrl = defaultLaunchUrl;
 
   records.forEach((row, index) => {
     const { event_type, data } = row;
@@ -44,24 +26,19 @@ function generateCypressTest(csvPath, testName = 'generated_test', defaultLaunch
       return;
     }
 
-    const parsedData = fixJSON(data);
-    if (!parsedData) {
+    let parsedData;
+    try {
+      parsedData = JSON.parse(data);
+    } catch (e) {
       console.warn(`⚠️ Invalid JSON at row ${index + 2}:`, data);
       return;
     }
 
-    switch (event_type.toLowerCase()) {
-      case 'navigate':
-        if (parsedData.url) {
-          launchUrl = parsedData.url;
-        } else {
-          console.warn(`⚠️ Missing url for navigate at row ${index + 2}`);
-        }
-        break;
-
+    switch (event_type) {
       case 'click':
         if (parsedData.selector) {
-          commands.push(`cy.get('${sanitizeString(parsedData.selector)}').click();`);
+          commands.push(`// Click on ${parsedData.selector}`);
+          commands.push(`cy.get('${parsedData.selector}').click();`);
         } else {
           console.warn(`⚠️ Missing selector for click at row ${index + 2}`);
         }
@@ -69,23 +46,23 @@ function generateCypressTest(csvPath, testName = 'generated_test', defaultLaunch
 
       case 'input':
         if (parsedData.selector && parsedData.value !== undefined) {
-          commands.push(`cy.get('${sanitizeString(parsedData.selector)}').type('${sanitizeString(parsedData.value)}');`);
+          commands.push(`// Type '${parsedData.value}' into ${parsedData.selector}`);
+          commands.push(`cy.get('${parsedData.selector}').type('${parsedData.value}');`);
         } else {
           console.warn(`⚠️ Missing selector/value for input at row ${index + 2}`);
         }
         break;
 
       case 'scroll':
-        if (parsedData.y !== undefined) {
-          commands.push(`cy.scrollTo(0, ${parsedData.y});`);
-        } else {
-          commands.push(`cy.scrollTo('${parsedData.direction || 'bottom'}');`);
-        }
+        const direction = parsedData.direction || 'bottom';
+        commands.push(`// Scroll to ${direction}`);
+        commands.push(`cy.scrollTo('${direction}');`);
         break;
 
       case 'keydown':
         if (parsedData.selector && parsedData.key) {
-          commands.push(`cy.get('${sanitizeString(parsedData.selector)}').type('{${parsedData.key}}');`);
+          commands.push(`// Simulate keydown '${parsedData.key}' on ${parsedData.selector}`);
+          commands.push(`cy.get('${parsedData.selector}').type('{${parsedData.key}}');`);
         } else {
           console.warn(`⚠️ Missing selector/key for keydown at row ${index + 2}`);
         }
@@ -94,7 +71,9 @@ function generateCypressTest(csvPath, testName = 'generated_test', defaultLaunch
       case 'xhr':
       case 'fetch':
         if (parsedData.url) {
+          commands.push(`// Intercept and wait for network request to ${parsedData.url}`);
           commands.push(`cy.intercept('${parsedData.url}').as('request${index}');`);
+          commands.push(`cy.wait('@request${index}').its('response.statusCode').should('eq', 200);`);
         } else {
           console.warn(`⚠️ Missing url for ${event_type} at row ${index + 2}`);
         }
@@ -113,20 +92,17 @@ function generateCypressTest(csvPath, testName = 'generated_test', defaultLaunch
   });
 });`;
 
-    const testDir = path.join(__dirname, '..', 'cypress-tests');
-    if (!fs.existsSync(testDir)) {
+  const testDir = path.join(__dirname, '..', 'cypress-tests');
+  if (!fs.existsSync(testDir)) {
     fs.mkdirSync(testDir);
-    }
+  }
 
-    const now = new Date();
-    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
+  const testFilename = `test_${timestamp}.cy.js`;
+  const testPath = path.join(testDir, testFilename);
+  fs.writeFileSync(testPath, testCode);
 
-    const testFilename = `test_${timestamp}.cy.js`;
-    const testPath = path.join(testDir, testFilename);
-    fs.writeFileSync(testPath, testCode);
-
-    return testPath;
-
+  return testPath;
 }
 
 module.exports = { generateCypressTest };
