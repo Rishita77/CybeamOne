@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 
+const { runCypressTest } = require('./runCypressTest');
+
 function generateCypressTest(csvPath, testName = 'generated_test', launchUrl = 'http://example.com') {
   const content = fs.readFileSync(csvPath, 'utf-8');
 
@@ -104,5 +106,13 @@ function generateCypressTest(csvPath, testName = 'generated_test', launchUrl = '
 
   return testPath;
 }
+
+async function generateAndRun(csvPath, testName, launchUrl) {
+  const testFilePath = generateCypressTest(csvPath, testName, launchUrl);
+  const result = await runCypressTest(testFilePath);
+  return { testFilePath, ...result };
+}
+
+module.exports = { generateCypressTest, generateAndRun };
 
 module.exports = { generateCypressTest };

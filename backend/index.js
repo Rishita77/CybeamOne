@@ -13,6 +13,7 @@ const wss = new WebSocket.Server({ server });
 
 const convertCSVtoExcel = require('./csvToExcel');
 const { generateCypressTest } = require('./csvToCypress');
+const { runCypressTest } = require('./runCypressTest');
 
 
 const { startCSVSession, writeCSVLine, stopCSVSession } = require('./csvWriter');
@@ -111,24 +112,35 @@ app.post('/launch', (req, res) => {
 });
 
 
-app.post('/submit-outcome', (req, res) => {
+app.post('/submit-outcome', async (req, res) => {
   const { outcome } = req.body;
   if (!outcome) return res.status(400).json({ error: 'No outcome provided' });
 
   try {
-    const csvFile = stopCSVSession(outcome); // saves the outcome inside the CSV
+    const csvFile = stopCSVSession(outcome); 
     console.log(`✅ Outcome "${outcome}" saved to ${csvFile}`);
 
     const testFile = generateCypressTest(csvFile, outcome, lastLaunchedUrl);
-
     console.log(`🧪 Cypress test generated at: ${testFile}`);
 
-    res.json({ status: 'Outcome saved & test generated', csvFile, testFile });
+    const { success, output, error } = await runCypressTest(testFile);
+    if (!success) {
+      console.error('❌ Cypress test run failed:', error);
+    }
+
+    res.json({
+      status: 'Outcome saved, test generated, and test executed',
+      csvFile,
+      testFile,
+      testResult: output,
+      success,
+    });
   } catch (err) {
-    console.error('❌ Failed to write outcome or generate test:', err);
+    console.error('❌ Failed to write outcome or generate/run test:', err);
     res.status(500).json({ error: 'Error saving outcome or generating test' });
   }
 });
+
 
 
 

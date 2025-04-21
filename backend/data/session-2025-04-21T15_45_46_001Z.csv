@@ -1,0 +1,2 @@
+timestamp,event_type,data
+"2025-04-21T15:46:04.246Z","xhr","{""method"":""POST"",""url"":""https://r.clarity.ms/collect""}"

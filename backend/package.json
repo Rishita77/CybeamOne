@@ -11,11 +11,15 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
     "csv-parser": "^3.2.0",
     "csv-writer": "^1.6.0",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "http-proxy-middleware": "^3.0.5",
     "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "cypress": "^14.3.1"
   }
 }
